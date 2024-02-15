@@ -3,8 +3,6 @@ import pygame as pg
 import sys
 import math
 import random
-from settings import *
-from sprites import *
 
 '''
 # forbedre
@@ -16,6 +14,66 @@ from sprites import *
 3. Spør om objekt for stick, bruke klasse?
 4. Spør om det er bedre å gjøre regnestykker eller å ha tallene fra før av
 '''
+
+# Størrelse på banen
+pool_size = 4
+
+# Størrelsen på ballene
+radius = 5.715/2 * pool_size
+diameter = radius*2
+
+# Distansen mellom ballene i startposisjon
+distanse = math.sqrt(diameter**2 - radius**2)
+
+# Lengde og bredde på banen
+lengde = 224 * pool_size
+bredde = 112 * pool_size
+
+# Fritt område (free area)
+f_a = 150
+
+# Lengde og bredde på vinduet
+WIDTH = lengde + f_a*2
+HEIGHT = bredde + f_a*2
+SIZE = (WIDTH, HEIGHT)
+
+# Frames Per Second (bilder per sekund)
+FPS = 120
+
+# Farger (RGB)
+WHITE = (255, 255, 255)     # Køball
+BEIGE = (230, 200, 170)     # Kø
+BLACK = (0, 0, 0)           # 8 Ball
+YELLOW = (255, 255, 0)      # 1 and 9 Ball
+BLUE = (0, 0, 255)          # 2 and 10 Ball
+RED = (255, 0, 0)           # 3 and 11 Ball
+PURPLE = (128, 0, 128)      # 4 and 12 Ball
+ORANGE = (255, 165, 0)      # 5 and 13 Ball
+GREEN = (0, 128, 0)         # 6 and 14 Ball
+BROWN = (165, 42, 42)       # 7 and 15 Ball
+
+ballverdier = [
+    [YELLOW, 1, 0],
+    [BLUE, 2, 0],
+    [RED, 3, 0],
+    [PURPLE, 4, 0],
+    [ORANGE, 5, 0],
+    [GREEN, 6, 0],
+    [BROWN, 7, 0],
+    [BLACK, 8],
+    [YELLOW, 9, 1],
+    [BLUE, 10, 1],
+    [RED, 11, 1],
+    [PURPLE, 12, 1],
+    [ORANGE, 13, 1],
+    [GREEN, 14, 1],
+    [BROWN, 15, 1]
+]
+
+# Lister for ballene, veggene og hullene
+balls = []
+walls = []
+holes = []
 
 # Initiere pg
 pg.init()
@@ -29,8 +87,171 @@ clock = pg.time.Clock()
 # Variabel som styrer om spillet skal kjøres
 run = True
 
+
+friction = 0.008    # Friksjon på banen
+
 # Variabler som holder styr på tastetrykk (brukes i testfasen)
 right, left, up, down = False, False, False, False
+
+# Klasse for vektorobjekter
+class Vector():
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+    
+    # Addisjon av vektorer
+    def add(self, v):
+        return Vector(self.x+v.x, self.y+v.y)
+    
+    # Subtraksjon av vektorer
+    def subtr(self, v):
+        return Vector(self.x-v.x, self.y-v.y)
+    
+    # Lengde til vektorer
+    def mag(self):
+        return math.sqrt(self.x**2 + self.y**2)
+    
+    # Multiplikasjon av vektorer
+    def mult(self, n):
+        return Vector(self.x*n, self.y*n)
+    
+    # Normal til vektorer
+    def normal(self):
+        return Vector(-self.y, self.x).unit()
+    
+    # Enhetsvektor til vektorer
+    def unit(self):
+        if self.mag() == 0:
+            return Vector(0, 0)
+        else:
+            return Vector(self.x/self.mag(), self.y/self.mag())
+    
+    # Skalarprodukt mellom to vektorer
+    def dot(v1, v2):
+        return v1.x*v2.x + v1.y*v2.y
+    
+    # Tegning av vektorer
+    def draw_vec(self, surface_object, x, y, n, color):
+        pg.draw.line(surface_object, color, [x, y], [x+self.x*n, y+self.y*n], 2)
+
+# Klasse for ballobjekter
+class Ball():
+    def __init__(self, surface_object, x, y, r, m, farge):
+        self.surface_object = surface_object    # overflaten (surface)
+        self.r = r                              # radius
+        self.m = m                              # masse
+        
+        # Omvendt masse
+        if self.m == 0:
+            self.inv_m = 0
+        else:
+            self.inv_m = 1/self.m
+        self.elasticity = 0.7                   # elastisitet
+        self.pos = Vector(x, y)                 # posisjonsvektor
+        self.vel = Vector(0, 0)                 # fartsvektor
+        self.acc = Vector(0, 0)                 # akselerasjonsvektor (brukes i testfasen)
+        self.a = 0.05                           # akselerasjon (brukes i testfasen)
+        self.farge = farge                      # ballfarge
+        self.player = False                     # kan ballen styres? (Brukes i testfasen)
+        
+        # Legger til ballen i balls-listen
+        balls.append(self)
+            
+    # Funksjon for å bevege ballen
+    def draw(self):
+        # Tegner ballen
+        pg.draw.circle(self.surface_object, self.farge, (self.pos.x, self.pos.y), self.r)
+
+    def display(self):
+        # Tegner farts- og akselerasjonsvektor om lengden er under 0,01 (brukes i testfasen)
+        if self.vel.mag() > 0.01:
+            self.vel.draw_vec(self.surface_object, self.pos.x, self.pos.y, 1, (0, 200, 0))
+        if self.acc.mag() > 0.01:
+            self.acc.unit().draw_vec(self.surface_object, self.pos.x, self.pos.y, 1, (0, 0, 200))
+            
+        # Viser masse og elastisitet (brukes i testfasen)
+        '''
+        display_text(f"m: {self.m}", BLACK, self.farge, self.pos.x, self.pos.y-self.r*0.2, round(self.r*0.35))
+        display_text(f"e: {self.elasticity}", BLACK, self.farge, self.pos.x, self.pos.y+self.r*0.2, round(self.r*0.35))
+        '''
+        
+        
+    # Endrer akselerasjons-, farts- og posisjonsvektoren
+    def reposition(self):
+        self.acc = self.acc.unit().mult(self.a)     # akselerasjon
+        self.vel = self.vel.add(self.acc)           # fart
+        self.vel = self.vel.mult(1-friction)        # friksjon
+        self.pos = self.pos.add(self.vel)           # posisjon
+
+# Klasse for veggobjekter
+class Wall():
+    def __init__(self, surface_object, x1, y1, x2, y2):
+        self.start = Vector(x1, y1)             # startposisjon
+        self.end = Vector(x2, y2)               # sluttposisjon
+        self.surface_object = surface_object    # overflaten (surface)
+        # Legger til veggen i walls-listen
+        walls.append(self)
+        
+    # Tegner veggen
+    def draw_wall(self):
+        pg.draw.line(self.surface_object, BLACK, (self.start.x, self.start.y), (self.end.x, self.end.y), 1)
+        
+    # Enhetsvektor av veggen
+    def wall_unit(self):
+        return self.end.subtr(self.start).unit()
+
+# Klasse for pinneobjekter
+class Stick():
+    def __init__(self, surface_object):
+        self.surface_object = surface_object    # overflaten (surface)
+    
+    def draw_stick(self):
+        # Museposisjonsvektor
+        self.m_end = pg.mouse.get_pos()
+        self.m_end = Vector(self.m_end[0], self.m_end[1])
+        
+        # Vektor fra mus til andre siden av ballen
+        self.b_vec = self.m_end.subtr(ball1.pos)
+        
+        # Mengden forflytning
+        self.movement = self.b_vec.mag()
+        
+        # Begrenser forflytningen og mulig kraft
+        if self.movement > 150:
+            self.movement = 150
+        elif self.movement < 60:
+            self.movement = 60
+        '''
+        forbedre
+        '''
+        # start- og sluttkoordinater for køen (biljardpinnen)
+        start1 = (ball1.pos.x + self.b_vec.unit().mult(self.movement-30).x, ball1.pos.y + self.b_vec.unit().mult(self.movement-30).y)
+        end1 = (ball1.pos.x + self.b_vec.unit().mult(self.movement+30).x, ball1.pos.y + self.b_vec.unit().mult(self.movement+30).y)
+
+        start2 = (ball1.pos.x + self.b_vec.unit().mult(self.movement+30).x, ball1.pos.y + self.b_vec.unit().mult(self.movement+30).y)
+        end2 = (ball1.pos.x + self.b_vec.unit().mult(self.movement+150).x, ball1.pos.y + self.b_vec.unit().mult(self.movement+150).y)
+        
+        # Tegner køen
+        pg.draw.line(self.surface_object, BEIGE, start1, end1, 6)
+        pg.draw.line(self.surface_object, BLACK, start2, end2, 6)
+        
+        pg.draw.line(self.surface_object, BLACK, start2, end2, 6)
+        
+        # Konverterer movementverdien til et tall [0, 255]
+        power = (self.movement-60)*(255/90)
+
+        # Viser kraft
+        pg.draw.rect(self.surface_object, (power, 255-power, 0), ((WIDTH/2)-(255/2), f_a/2+20, power, 20))
+
+class Hole():
+    def __init__(self, surface, x, y, r):
+        self.surface_object = surface
+        self.pos = Vector(x, y)
+        self.r = r
+        holes.append(self)
+        
+    def draw_hole(self):
+        pg.draw.circle(self.surface_object, BLACK, (self.pos.x, self.pos.y), self.r)
 
 # Funksjon som avgjør skuddet
 def stick_move():
@@ -50,7 +271,7 @@ def stick_move():
                 ball1.vel = Vector(-stick.b_vec.unit().mult(stick.movement*power-60*power).x, -stick.b_vec.unit().mult(stick.movement*power-60*power).y)
 
     if clicked:
-        stick.draw_stick(ball1)
+        stick.draw_stick()
 
 # Styring av baller (brukes i testfasen)
 def key_controll(b):
@@ -212,8 +433,9 @@ def display_text(txt, txt_color, rect_color, x, y, s):
 # Variabel som sier om man trykker
 clicked = False
 
-# Pinnen
+# Pinnen og kraften til den
 stick = 0
+power = 0.25
 
 # Lager baller og vegger
 ball1 = Ball(surface, f_a+lengde/4, f_a+bredde/2, radius, 1, RED)
@@ -234,6 +456,7 @@ wall3_2 = Wall(surface, f_a+lengde/2-p_s, f_a+bredde, f_a+p_s_d, f_a+bredde)
 
 wall4 = Wall(surface, f_a, f_a+bredde-p_s_d, f_a, f_a+p_s_d)
 
+hole_radius = 25
 hole_wall1_1 = Wall(surface, f_a+p_s_d, f_a, f_a-hole_radius+p_s_d, f_a-hole_radius)
 hole_wall1_2 = Wall(surface, f_a, f_a+p_s_d, f_a-hole_radius, f_a-hole_radius+p_s_d)
 
@@ -309,17 +532,17 @@ while run:
     pg.draw.rect(surface, BLACK, ((WIDTH/2)-(255/2), f_a/2+20, 255, 20), 1)
     
     # Tegner hull og registrerer ball i hull
-    for index in range(len(Hole.liste)):
-        Hole.liste[index].draw_hole()
-        for b in Ball.liste:
-            if coll_det_bh(b, Hole.liste[index]):
+    for index in range(len(holes)):
+        holes[index].draw_hole()
+        for b in balls:
+            if coll_det_bh(b, holes[index]):
                 print(f"ball i hull")
                 b.pos = Vector(WIDTH/2, HEIGHT/2)
                 b.farge = BLACK
     
     # Registrerer kollisjon og beregner effekten av kollisjonen ved å iterere gjennom alle ballene
-    for index in range(len(Ball.liste)):
-        b = Ball.liste[index]
+    for index in range(len(balls)):
+        b = balls[index]
         b.draw()
         
         # Beveger spillerballen (brukes i testfasen)
@@ -327,13 +550,13 @@ while run:
             key_controll(b)
             
         # Registrerer krasj for én ball med de som ikke har blitt testet og responderer
-        for j in range(index + 1, len(Ball.liste)):
-            if coll_det_bb(b, Ball.liste[j]):
-                pen_res_bb(b, Ball.liste[j])
-                coll_res_bb(b, Ball.liste[j])
+        for j in range(index + 1, len(balls)):
+            if coll_det_bb(b, balls[j]):
+                pen_res_bb(b, balls[j])
+                coll_res_bb(b, balls[j])
                 
         # Registrerer kollisjon mellom baller og vegger og responderer
-        for w in Wall.liste:
+        for w in walls:
             if coll_det_bw(b, w):
                 pen_res_bw(b, w)
                 coll_res_bw(b, w)
@@ -346,8 +569,8 @@ while run:
 
         
     # Tegner veggene
-    for index in range(len(Wall.liste)):
-        w = Wall.liste[index]
+    for index in range(len(walls)):
+        w = walls[index]
         w.draw_wall()
 
     # "Flipper" displayet for å vise hva vi har tegnet
