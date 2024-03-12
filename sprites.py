@@ -1,5 +1,5 @@
-import math
 import pygame as pg
+import math
 from settings import *
 
 # Klasse for vektorobjekter
@@ -61,7 +61,7 @@ class Ball():
         self.pos = Vector(x, y)                 # posisjonsvektor
         self.vel = Vector(0, 0)                 # fartsvektor
         self.acc = Vector(0, 0)                 # akselerasjonsvektor (brukes i testfasen)
-        self.a = 0.05                           # akselerasjon (brukes i testfasen)
+        self.a = 0.15                           # akselerasjon (brukes i testfasen)
         self.farge = farge                      # ballfarge
         self.player = False                     # kan ballen styres? (Brukes i testfasen)
         
@@ -79,19 +79,13 @@ class Ball():
             self.vel.draw_vec(self.surface_object, self.pos.x, self.pos.y, 1, (0, 200, 0))
         if self.acc.mag() > 0.01:
             self.acc.unit().draw_vec(self.surface_object, self.pos.x, self.pos.y, 1, (0, 0, 200))
-            
-        # Viser masse og elastisitet (brukes i testfasen)
-        '''
-        display_text(f"m: {self.m}", BLACK, self.farge, self.pos.x, self.pos.y-self.r*0.2, round(self.r*0.35))
-        display_text(f"e: {self.elasticity}", BLACK, self.farge, self.pos.x, self.pos.y+self.r*0.2, round(self.r*0.35))
-        '''
         
         
     # Endrer akselerasjons-, farts- og posisjonsvektoren
     def reposition(self):
         self.acc = self.acc.unit().mult(self.a)     # akselerasjon
         self.vel = self.vel.add(self.acc)           # fart
-        self.vel = self.vel.mult(1-friction)        # friksjon
+        self.vel = self.vel.mult(1-FRICTION)        # friksjon
         self.pos = self.pos.add(self.vel)           # posisjon
 
 # Klasse for veggobjekter
@@ -142,18 +136,20 @@ class Stick():
 
         start2 = (b.pos.x + self.b_vec.unit().mult(self.movement+30).x, b.pos.y + self.b_vec.unit().mult(self.movement+30).y)
         end2 = (b.pos.x + self.b_vec.unit().mult(self.movement+150).x, b.pos.y + self.b_vec.unit().mult(self.movement+150).y)
+
+        startLine = (b.pos.x - self.b_vec.unit().mult(20).x, b.pos.y - self.b_vec.unit().mult(20).y)
+        endLine = (b.pos.x - self.b_vec.unit().mult(WIDTH).x, b.pos.y - self.b_vec.unit().mult(WIDTH).y)
         
         # Tegner køen
         pg.draw.line(self.surface_object, BEIGE, start1, end1, 6)
         pg.draw.line(self.surface_object, BLACK, start2, end2, 6)
-        
-        pg.draw.line(self.surface_object, BLACK, start2, end2, 6)
+        pg.draw.line(self.surface_object, GRAYBLACK, startLine, endLine)
         
         # Konverterer movementverdien til et tall [0, 255]
         power = (self.movement-60)*(255/90)
 
         # Viser kraft
-        pg.draw.rect(self.surface_object, (power, 255-power, 0), ((WIDTH/2)-(255/2), f_a/2+20, power, 20))
+        pg.draw.rect(self.surface_object, (power, 255-power, 0), ((WIDTH/2)-(255/2), F_A/2+20, power, 20))
 
 class Hole():
     liste = []
@@ -165,3 +161,4 @@ class Hole():
         
     def draw_hole(self):
         pg.draw.circle(self.surface_object, BLACK, (self.pos.x, self.pos.y), self.r)
+

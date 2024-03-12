@@ -1,32 +1,37 @@
 import math
 
 # Størrelse på banen
-pool_size = 4
+POOL_SIZE = 4
 
 # Størrelsen på ballene
-radius = 5.715/2 * pool_size
-diameter = radius*2
+RADIUS = 5.715/2 * POOL_SIZE
+DIAMETER = RADIUS*2
 
 # Distansen mellom ballene i startposisjon
-distanse = math.sqrt(diameter**2 - radius**2)
+DISTANCE = math.sqrt(DIAMETER**2 - RADIUS**2)
 
-# Lengde og bredde på banen
-lengde = 224 * pool_size
-bredde = 112 * pool_size
+# LENGDE og BREDDE på banen
+LENGTH_P = 224 * POOL_SIZE
+WIDTH_P = 112 * POOL_SIZE
 
 # Fritt område (free area)
-f_a = 150
+F_A = 150
+
+# Biljardmellomrom (pool_space)
+P_S = DIAMETER*1.1
+# Biljardmellomrom diagonal
+P_S_D = (P_S**2+P_S**2)**0.5
 
 # Kraft til pinnen
-power = 0.25
+POWER = 0.25
 
-hole_radius = 25    # Radius på hullene
+HOLE_RADIUS = 25
 
-friction = 0.008    # Friksjon på banen
+FRICTION = 0.008    # Friksjon på banen
 
-# Lengde og bredde på vinduet
-WIDTH = lengde + f_a*2
-HEIGHT = bredde + f_a*2
+# LENGDE og BREDDE på vinduet
+WIDTH = LENGTH_P + F_A*2
+HEIGHT = WIDTH_P + F_A*2
 SIZE = (WIDTH, HEIGHT)
 
 # Frames Per Second (bilder per sekund)
@@ -43,8 +48,10 @@ PURPLE = (128, 0, 128)      # 4 and 12 Ball
 ORANGE = (255, 165, 0)      # 5 and 13 Ball
 GREEN = (0, 128, 0)         # 6 and 14 Ball
 BROWN = (165, 42, 42)       # 7 and 15 Ball
+GRAYBLACK = (50, 50, 50)    # Kø støttelinje
+DARKBLUE = (52, 152, 219)    # Brettfarge
 
-ballverdier = [
+BALLVERDIER = [
     [YELLOW, 1, 0],
     [BLUE, 2, 0],
     [RED, 3, 0],
@@ -61,3 +68,4 @@ ballverdier = [
     [GREEN, 14, 1],
     [BROWN, 15, 1]
 ]
+
