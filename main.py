@@ -13,7 +13,7 @@ class Game():
 
         # Lager en klokke
         self.clock = pg.time.Clock()
-
+        print(type(7))
         # Variabel som styrer om spillet skal kjøres
         self.running = True
 
