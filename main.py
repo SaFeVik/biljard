@@ -1,8 +1,19 @@
 # Importere pg
 import pygame as pg
 import sys
+import random
 from sprites import *
 
+# Initierer mixer
+pg.mixer.init()
+
+# Laster inn lyder
+#song = pg.mixer.Sound('/Users/husbanan/Filer/github/biljardNy/printer_sang.mp3')
+#cue_sound = pg.mixer.Sound('/Users/husbanan/Filer/github/biljardNy/cueSound.mp3')
+#pling_sound = pg.mixer.Sound('/Users/husbanan/Filer/github/biljardNy/pling.mp3')
+#plop_sound = pg.mixer.Sound('/Users/husbanan/Filer/github/biljardNy/plop.mp3')
+
+# Spillobjekt
 class Game():
     def __init__(self):
         # Initiere pg
@@ -13,25 +24,52 @@ class Game():
 
         # Lager en klokke
         self.clock = pg.time.Clock()
-        print(type(7))
+
         # Variabel som styrer om spillet skal kjøres
         self.running = True
 
-        self.fps = FPS
+    # Lager et nytt spill
+    def new(self):
+        Ball.nr = 0
+        Ball.arr = []
+        Wall.arr = []
+        Hole.arr = []
 
+        # Endrer seg når ballene stopper og starter å bevege seg
+        self.motion = False
+
+        # Antall baller hver spiller har igjen
         self.player1Balls = 7
         self.player2Balls = 7
+        self.player1Balls_temp = self.player1Balls
+        self.player2Balls_temp = self.player2Balls
+
+        # Spiller 1 har "1", Spiller 2 har "-1"
         self.playerTurn = 1
 
-    def new(self):
-        self.ball1 = Ball(self.screen, F_A+LENGTH_P/4, F_A+WIDTH_P/2, RADIUS, 1, RED)
-        self.ball1.player = True
+        # Sjekker om svart ball har havnet i hullet
+        self.black_ball_in_hole = False
 
+        # Sjekker om hvit ball har havnet i hullet
+        self.player_ball_in_holee = False
+
+        # Legger ballene i tilfeldig rekkefølge unntatt hvit og svart
+        black_ball = BALLVERDIER.pop(5)
+        white_ball = BALLVERDIER.pop(0)
+        random.shuffle(BALLVERDIER)
+        BALLVERDIER.insert(0, white_ball)
+        BALLVERDIER.insert(5, black_ball)
+
+        # Lager spillerball
+        self.ball1 = Ball(self.screen, F_A+LENGTH_P/4, F_A+WIDTH_P/2, RADIUS, 1)
+
+        # Lager køen
         self.stick = Stick(game_object.screen)
 
+        # Lager resten av ballene
         for i in range(5):
             for j in range(i+1):
-                ball = Ball(self.screen, F_A+LENGTH_P*(3/4) + i*DISTANCE, HEIGHT/2 + DIAMETER*j - i*RADIUS, RADIUS, 1, BALLVERDIER[i+j][0])
+                Ball(self.screen, F_A+LENGTH_P*(3/4) + i*DISTANCE*1.1, HEIGHT/2 + DIAMETER*j*1.1 - i*RADIUS, RADIUS, 1)
 
         # Vegger
         # Oppe venstre
@@ -78,158 +116,243 @@ class Game():
         Wall(self.screen, F_A, F_A+WIDTH_P-P_S_D, F_A-HOLE_RADIUS, F_A+WIDTH_P+HOLE_RADIUS-P_S_D)
         Hole(self.screen, F_A - HOLE_RADIUS*(2**0.5)/10, F_A+WIDTH_P + HOLE_RADIUS*(2**0.5)/10, HOLE_RADIUS)
 
+        # Starter spillet
         self.run()
 
     def run(self):
+        # variabel som sjekker om spillet er i gang
         self.playing = True
 
+        # Oppdaterer brettet
         while self.playing:
             self.update()
 
-    def update(self):
-        # Sørger for at løkken kjører i korrekt hastighet
-        self.clock.tick(self.fps)
+        # Viser endscreen hvis programmet kjører
+        if self.running == True:
+            self.endscreen()
 
+    def events(self):
         # Går gjennom hendelser (events)
         events = pg.event.get()
-        
         for event in events:
             # Sjekker om vi ønsker å lukke vinduet
             if event.type == pg.QUIT:
-                print("quit")
                 # Spillet avsluttes
                 self.playing = False
                 self.running = False 
+                self.end_screen_render = False
 
-                    
-            # Enrer FPS om man trykker på g eller h (brukes i testfasen)
-            keys = pg.key.get_pressed()
-            if keys[pg.K_g]:
-                self.fps = 1
-            if keys[pg.K_h]:
-                self.fps = 120
+            # Avsgjør kraften til skuddet 
+            if self.playing:
+                if event.type == pg.MOUSEBUTTONUP:
+                    # Passer på at den hvite ballen står stille
+                    if self.momentum == 0:
+                        #cue_sound.play()
+                        self.ball1.vel = Vector(-self.stick.b_vec.unit().mult((self.stick.movement-CUE_MOVEMENT_MIN)*POWER).x, -self.stick.b_vec.unit().mult((self.stick.movement-CUE_MOVEMENT_MIN)*POWER).y)
 
-            # Avsgjør kraften til skuddet                    
-            if event.type == pg.MOUSEBUTTONUP:
-                self.ball1.vel = Vector(-self.stick.b_vec.unit().mult(self.stick.movement*POWER-60*POWER).x, -self.stick.b_vec.unit().mult(self.stick.movement*POWER-60*POWER).y)
+
+    def update(self):
+        # Sørger for at løkken kjører i korrekt hastighet
+        self.clock.tick(FPS)
+
+        # Starter sangen på nytt om den er ferdig
+        if not pg.mixer.get_busy() or pg.mixer.get_busy() == song:
+            #song.play()
+            pass
+
+        # Sjekker events
+        self.events()
                
         # Fyller skjermen med en farge
-        self.screen.fill(DARKBLUE)
+        self.screen.fill(BACKGROUND)
 
+        # Brettfarge
+        pg.draw.rect(self.screen, BOARDCOLOR, (F_A, F_A, WIDTH-2*F_A, HEIGHT-2*F_A), 0)
+        
         # Avgjør om køen skal tegnes
         if pg.mouse.get_pressed()[0]:
-            self.stick.draw_stick(self.ball1)
+            # Passer på at den hvite ballen står stille
+            if self.momentum == 0:
+                self.stick.draw_stick(self.ball1)
         
-        # Viser faktisk fps
+        # Finner faktisk fps
         actual_fps = self.clock.get_fps()
-        display_text(f"fps: {round(actual_fps)}", RED, WHITE, WIDTH/2, F_A/4, 15)
 
-        pg.draw.rect(self.screen, BLACK, ((WIDTH/2)-(255/2), F_A/2+20, 255, 20), 1)
+        # Viser fps
+        display_text(f"fps: {round(actual_fps)}", ORANGE, WIDTH/2, F_A/4, 15)
 
-        display_text("PLAYER 1 : STRIPER", BLACK, WHITE, WIDTH/4, F_A/2, 14)
-        display_text("PLAYER 2 : UTEN STRIPER", BLACK, WHITE, WIDTH*(3/4), F_A/2, 14)
+        # Ramme for køkraft
+        pg.draw.rect(self.screen, BLACK, ((WIDTH/2)-(255/2), F_A/3, 255, 20), 1)
 
+        # Viser hvem sin tur det er 
         if self.playerTurn == 1:
-            display_text("TURN : PLAYER 1", BLACK, WHITE, WIDTH/2, F_A/2, 14)
+            display_text("PLAYER 1 : STRIPER", ORANGE, WIDTH/4, F_A/4, 14)
+            display_text("PLAYER 2 : UTEN STRIPER", WHITE, WIDTH*(3/4), F_A/4, 14)
         else:
-            display_text("TURN : PLAYER 2", BLACK, WHITE, WIDTH/2, F_A/2, 14)
+            display_text("PLAYER 1 : STRIPER", WHITE, WIDTH/4, F_A/4, 14)
+            display_text("PLAYER 2 : UTEN STRIPER", ORANGE, WIDTH*(3/4), F_A/4, 14)
         
         # Tegner hull og registrerer ball i hull
-        for index in range(len(Hole.liste)):
-            Hole.liste[index].draw_hole()
-            for b in Ball.liste:
-                if coll_det_bh(b, Hole.liste[index]):
+        for index in range(len(Hole.arr)):
+            Hole.arr[index].draw_hole()
+            for b in Ball.arr:
+                if coll_det_bh(b, Hole.arr[index]):
+                    #plop_sound.play()
+                    # Registrerer om det er spillerballen som har gått i hullet
+                    b.vel = Vector(0, 0)
+                    if b.values[1] == "":
+                        self.player_ball_in_hole = True
+                        b.pos = Vector(WIDTH/2, HEIGHT/2)
 
-                    print(f"ball i hull")
-                    b.pos = Vector(WIDTH/2, HEIGHT/2)
+                    # Registrerer om det er den svarte ballen som har gått i hullet
+                    elif b.values[1] == 8:
+                        b.score_ball = True
+                        if self.playerTurn == 1:
+                            b.pos = Vector(WIDTH/3 - self.player1Balls * DIAMETER, F_A/2)
+                        else:
+                            b.pos = Vector(WIDTH*(3/4) - self.player2Balls * DIAMETER, F_A/2)
 
-                    b.farge = BLACK
+                        self.black_ball_in_hole = True
+
+                    # Registrerer alle andre baller
+                    else:
+                        b.score_ball = True
+                        # Registrerer poeng
+                        if b.values[2] == 1:
+                            b.pos = Vector(WIDTH/3 - self.player1Balls * DIAMETER, F_A/2)
+                            self.player1Balls -= 1
+                        elif b.values[2] == 0:
+                            b.pos = Vector(WIDTH*(8.1/10) - self.player2Balls * DIAMETER, F_A/2)
+                            self.player2Balls -= 1
         
+        # Total fart til ballene
+        self.momentum = 0
+
         # Registrerer kollisjon og beregner effekten av kollisjonen ved å iterere gjennom alle ballene
-        for index in range(len(Ball.liste)):
-            b = Ball.liste[index]
+        for index in range(len(Ball.arr)):
+            b = Ball.arr[index]
+            # Legger til total fart til ballene
+            self.momentum += b.vel.mag()
             b.draw()
-            
-            # Beveger spillerballen (brukes i testfasen)
-            if b.player:
-                key_controll(b)
+
+            # Tegner balldetaljer
+            if b.values[2] == 1:
+                pg.draw.line(self.screen, WHITE, (b.pos.x-1, b.pos.y-RADIUS), (b.pos.x, b.pos.y + RADIUS*0.9), int(RADIUS/2))
+            display_text(f"{b.values[1]}", BLACK, b.pos.x, b.pos.y, int(RADIUS*0.9), "circle", WHITE)
                 
             # Registrerer krasj for én ball med de som ikke har blitt testet og responderer
-            for j in range(index + 1, len(Ball.liste)):
-                if coll_det_bb(b, Ball.liste[j]):
-                    pen_res_bb(b, Ball.liste[j])
-                    coll_res_bb(b, Ball.liste[j])
+            for j in range(index + 1, len(Ball.arr)):
+                if coll_det_bb(b, Ball.arr[j]):
+                    pen_res_bb(b, Ball.arr[j])
+                    coll_res_bb(b, Ball.arr[j])
                     
             # Registrerer kollisjon mellom baller og vegger og responderer
-            for w in Wall.liste:
+            for w in Wall.arr:
                 if coll_det_bw(b, w):
                     pen_res_bw(b, w)
                     coll_res_bw(b, w)
-                    
-            # Viser farts- og akselerasjonsvektorer til ballene
-            b.display()
             
             # Flytter på ballene
             b.reposition()
 
+        # Endres når ballene går fra bevegelse til stille
+        if self.momentum > 0:
+            self.motion = True
+
+        # Runden er ferdig
+        if self.momentum == 0 and self.motion == True:
+            #pling_sound.play()
+            # Hvis spiller 1 sin tur
+            if self.playerTurn == 1:
+                if self.black_ball_in_hole:
+                    # Taper pga svart ball
+                    if self.player1Balls > 0:
+                        self.playerTurn *= -1
+                        self.playing = False
+                    # Vinner med svart ball
+                    if self.player1Balls == 0:
+                        self.playing = False
+
+                # Bytter tur
+                elif self.player1Balls == self.player1Balls_temp or self.player2Balls != self.player2Balls_temp or self.player_ball_in_hole:
+                    self.playerTurn *= -1
+                
+            # Hvis spiller 2 sin tur
+            elif self.playerTurn == -1:
+                if self.black_ball_in_hole:
+                    # Taper pga svart ball
+                    if self.player2Balls > 0:
+                        self.playerTurn *= -1
+                        self.playing = False
+                    # Vinner med svart ball
+                    if self.player2Balls == 0:
+                        self.playing = False
+
+                # Bytter tur
+                elif self.player2Balls == self.player2Balls_temp or self.player1Balls != self.player1Balls_temp or self.player_ball_in_hole:
+                    self.playerTurn *= -1
+
+            self.player1Balls_temp = self.player1Balls
+            self.player2Balls_temp = self.player2Balls
+
+            self.player_ball_in_hole = False
+            self.motion = False
             
         # Tegner veggene
-        for index in range(len(Wall.liste)):
-            w = Wall.liste[index]
+        for index in range(len(Wall.arr)):
+            w = Wall.arr[index]
             w.draw_wall()
 
         # "Flipper" displayet for å vise hva vi har tegnet
         pg.display.flip()
 
+    def endscreen(self):
+        self.end_screen_render = True
 
+        # Loop for endscreen
+        while self.end_screen_render:
+            self.events()
+            keys = pg.key.get_pressed()
+            self.clock.tick(FPS)
+            # Fyller skjermen med en farge
+            self.screen.fill(GREEN)
+            # Bruker playerTurn for å vise hvem som vant
+            display_text(f"SPILLET ER OVER! SPILLER {int(-0.5*self.playerTurn+1.5)} VANT!", WHITE, WIDTH/2, HEIGHT/4, 20)
+            display_text(f"TRYKK PÅ 'MELLOMROMTASTEN' FOR Å SPILLE PÅ NYTT", WHITE, WIDTH/2, HEIGHT/2+F_A, 20)
 
-game_object = Game()
-
-# Styring av baller (brukes i testfasen)
-def key_controll(b):
-    right, left, up, down = False, False, False, False
-    key = pg.key.get_pressed()
-    # Sjekker om tast blir trykket
-    if key[pg.K_RIGHT]:
-        right = True
-    if key[pg.K_LEFT]:
-        left = True
-    if key[pg.K_UP]:
-        up = True
-    if key[pg.K_DOWN]:
-        down = True
-            
-    # Oppdaterer farten fra konrollere
-    if right:
-        b.acc.x = b.a
-    if left:
-        b.acc.x = -b.a      
-    if up:
-        b.acc.y = -b.a
-    if down:
-        b.acc.y = b.a
+            if keys[pg.K_SPACE]:
+                self.end_screen_render = False
+                self.new()
         
-    if right == False and left == False:
-        b.acc.x = 0
-    if up == False and down == False:
-        b.acc.y = 0
+            pg.display.flip()
+            
+game_object = Game()
 
 # Finner punktet på en vegg som er nermest en ball
 def closest_point_BW(b1Pos, w1):
+    # Vektorer fra ball til start og slutt av veggen
     ball_to_wall_start = w1.start.subtr(b1Pos)
+    wall_end_to_ball = b1Pos.subtr(w1.end)
+
+    # Om vinkelen er mer enn 90° er nærmeste punkt start eller slutt
     if Vector.dot(w1.wall_unit(), ball_to_wall_start) > 0:
         return w1.start
-    
-    wall_end_to_ball = b1Pos.subtr(w1.end)
     if Vector.dot(w1.wall_unit(), wall_end_to_ball) > 0:
         return w1.end
     
+    # Finner lengden på vektoren fra starten av veggen til nærmeste punkt
     closest_dist = Vector.dot(w1.wall_unit(), ball_to_wall_start)
+
+    # Lager vektor fra start av veggen til nærmeste punkt
     closest_vect = w1.wall_unit().mult(closest_dist)
+    
+    # Returnerer punktet
     return w1.start.subtr(closest_vect)
 
 # Registerer kollisjon mellom to baller
 def coll_det_bb(b1, b2):
+    # Sjekker om radiusene addert med hverandre er 
+    # større enn eller lik lengden på vektoren mellom dem
     if b1.r + b2.r >= b2.pos.subtr(b1.pos).mag():
         return True
     else:
@@ -237,6 +360,7 @@ def coll_det_bb(b1, b2):
     
 # Registerer ball i hull
 def coll_det_bh(b1, h1):
+    # Sjekker om radiusen til hullet er større enn eller lik vektoren fra ball til hull
     if h1.r >= h1.pos.subtr(b1.pos).mag():
         return True
     else:
@@ -246,27 +370,19 @@ def coll_det_bh(b1, h1):
 def coll_det_bw(b1, w1):
     # Vektor fra ball til nærmeste punkt på veggen
     ball_to_closest = closest_point_BW(b1.pos, w1).subtr(b1.pos)
-     
-    # Punkt på enden av fartsvektoren
-    vel_end = b1.pos.add(b1.vel)
-    
-    # Vektor fra enden av fartsvektor til nærmeste punkt på veggen
-    vel_to_closest = closest_point_BW(vel_end, w1).subtr(vel_end)
     
     # Registrerer om enden av fartsvektoren er på forskjellig side av veggen enn ballen
     # Enden av fartsvektoren bestemmer ballens neste posisjon
-    '''
-    forbedre ?
-    '''
-    
-    if b1.pos.x < F_A:
-        b1.pos.x += b1.r
-    if b1.pos.x > F_A+LENGTH_P:
-        b1.pos.x -= b1.r
-    if b1.pos.y < F_A:
-        b1.pos.y += b1.r
-    if b1.pos.y > F_A+WIDTH_P:
-        b1.pos.y -= b1.r
+
+    if b1.score_ball == False:
+        if b1.pos.x < F_A-RADIUS/2:
+            b1.pos.x += b1.r
+        if b1.pos.x > F_A+LENGTH_P+RADIUS/2:
+            b1.pos.x -= b1.r
+        if b1.pos.y < F_A-RADIUS/2:
+            b1.pos.y += b1.r
+        if b1.pos.y > F_A+WIDTH_P+RADIUS/2:
+            b1.pos.y -= b1.r
         
     # Registrerer kollisjon
     if ball_to_closest.mag() <= b1.r:
@@ -294,10 +410,7 @@ def pen_res_bw(b1, w1):
     
     # Ballen blir dyttet tilbake avhengig av hvor mye den overlapper
     b1.pos = b1.pos.add(pen_vect.unit().mult(b1.r - pen_vect.mag()))
-'''
-# +
-Kommenter ballkollisjon og ball- og veggkollisjon
-'''
+
 # Kollisjonsrespons mellom to baller
 def coll_res_bb(b1, b2):
     normal = b1.pos.subtr(b2.pos).unit()
@@ -321,17 +434,22 @@ def coll_res_bw(b1, w1):
     b1.vel = b1.vel.add(normal.mult(-vsep_diff))
 
 # Viser tekst på skjermen
-def display_text(txt, txt_color, rect_color, x, y, s):
+def display_text(txt, txt_color, x, y, s, shape="none", background_color = WHITE):
     font = pg.font.Font('freesansbold.ttf', s)
-    text = font.render(txt, True, txt_color, rect_color)
-    textRect = text.get_rect()
-    textRect.center = (x, y)
+    text = font.render(txt, True, txt_color)
+    textRect = text.get_rect(center=(x, y))
+
+    if shape == "rect":
+        text = font.render(txt, True, txt_color, background_color)
+    elif shape == 'circle':
+        radius = textRect.height // 1.3
+        pg.draw.circle(game_object.screen, background_color, textRect.center, radius)
     game_object.screen.blit(text, textRect)
 
+
 # Spill-løkken
-while game_object.running:
-    # Starter et nytt spill
-    game_object.new()
+game_object.new()
+
 print("QUITTED")
 
 # Avslutter pg
