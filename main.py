@@ -8,10 +8,10 @@ from sprites import *
 pg.mixer.init()
 
 # Laster inn lyder
-#song = pg.mixer.Sound('/Users/husbanan/Filer/github/biljardNy/printer_sang.mp3')
-#cue_sound = pg.mixer.Sound('/Users/husbanan/Filer/github/biljardNy/cueSound.mp3')
-#pling_sound = pg.mixer.Sound('/Users/husbanan/Filer/github/biljardNy/pling.mp3')
-#plop_sound = pg.mixer.Sound('/Users/husbanan/Filer/github/biljardNy/plop.mp3')
+song = pg.mixer.Sound('printer_sang.mp3')
+cue_sound = pg.mixer.Sound('cueSound.mp3')
+pling_sound = pg.mixer.Sound('pling.mp3')
+plop_sound = pg.mixer.Sound('plop.mp3')
 
 # Spillobjekt
 class Game():
@@ -147,7 +147,7 @@ class Game():
                 if event.type == pg.MOUSEBUTTONUP:
                     # Passer på at den hvite ballen står stille
                     if self.momentum == 0:
-                        #cue_sound.play()
+                        cue_sound.play()
                         self.ball1.vel = Vector(-self.stick.b_vec.unit().mult((self.stick.movement-CUE_MOVEMENT_MIN)*POWER).x, -self.stick.b_vec.unit().mult((self.stick.movement-CUE_MOVEMENT_MIN)*POWER).y)
 
 
@@ -157,7 +157,7 @@ class Game():
 
         # Starter sangen på nytt om den er ferdig
         if not pg.mixer.get_busy() or pg.mixer.get_busy() == song:
-            #song.play()
+            song.play()
             pass
 
         # Sjekker events
@@ -197,7 +197,7 @@ class Game():
             Hole.arr[index].draw_hole()
             for b in Ball.arr:
                 if coll_det_bh(b, Hole.arr[index]):
-                    #plop_sound.play()
+                    plop_sound.play()
                     # Registrerer om det er spillerballen som har gått i hullet
                     b.vel = Vector(0, 0)
                     if b.values[1] == "":
@@ -261,7 +261,7 @@ class Game():
 
         # Runden er ferdig
         if self.momentum == 0 and self.motion == True:
-            #pling_sound.play()
+            pling_sound.play()
             # Hvis spiller 1 sin tur
             if self.playerTurn == 1:
                 if self.black_ball_in_hole:
@@ -325,7 +325,7 @@ class Game():
                 self.new()
         
             pg.display.flip()
-            
+
 game_object = Game()
 
 # Finner punktet på en vegg som er nermest en ball
