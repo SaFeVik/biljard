@@ -194,7 +194,7 @@ class Game():
         
         # Tegner hull og registrerer ball i hull
         for index in range(len(Hole.arr)):
-            Hole.arr[index].draw_hole()
+            Hole.arr[index].draw()
             for b in Ball.arr:
                 if coll_det_bh(b, Hole.arr[index]):
                     plop_sound.play()
@@ -449,8 +449,6 @@ def display_text(txt, txt_color, x, y, s, shape="none", background_color = WHITE
 
 # Spill-løkken
 game_object.new()
-
-print("QUITTED")
 
 # Avslutter pg
 pg.quit()
